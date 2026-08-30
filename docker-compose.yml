@@ -5,13 +5,14 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: job_pulse
-      # Add this line to force the container to use the expected directory layout
+      POSTGRES_DB: job_pulse_root # This remains the master/default database
       PGDATA: /var/lib/postgresql/data
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # Mount initialization script folder below
+      - ./init-scripts:/docker-entrypoint-initdb.d
 
   redis:
     image: redis:latest
