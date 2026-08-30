@@ -1,0 +1,13 @@
+packages:
+  # Name your root-level apps explicitly instead of using "*"
+  - "API Gateway"
+
+  # Keep scanning all your nested microservices
+  - "Services/*"
+
+allowBuilds:
+  "@parcel/watcher": false
+  esbuild: false
+  msgpackr-extract: false
+  unrs-resolver: false
+  workerd: false
