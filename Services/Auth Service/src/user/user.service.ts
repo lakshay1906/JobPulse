@@ -1,6 +1,6 @@
 import { userRegisterDTO } from '#src/auth/dto/userRegister.dto';
 import { PrismaService } from '#src/prisma/prisma.service';
-import { Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import ms from 'ms';
 import bcrypt from 'bcrypt';
@@ -51,21 +51,28 @@ export class UserService {
         },
       });
       const { passwordHash, ...user } = createdUser;
-      return {
-        status: 'success',
-        data: {
-          user,
-          accessToken: accessToken,
-          refreshToken: refreshToken,
+      throw new HttpException(
+        {
+          status: 'success',
+          data: {
+            user,
+            accessToken: accessToken,
+            refreshToken: refreshToken,
+          },
+          message: 'User Created successfull',
         },
-        message: 'User Created successfull',
-      };
+        HttpStatus.CREATED,
+      );
     } catch (error) {
       console.log(error);
-      return {
-        status: 'error',
-        message: 'Something went wrong in Auth Service - User Creation Failed',
-      };
+      throw new HttpException(
+        {
+          status: 'error',
+          message:
+            'Something went wrong in Auth Service - User Creation Failed',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 }
