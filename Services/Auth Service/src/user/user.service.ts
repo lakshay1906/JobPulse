@@ -2,8 +2,6 @@ import { userRegisterDTO } from '#src/auth/dto/userRegister.dto';
 import { PrismaService } from '#src/prisma/prisma.service';
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import ms from 'ms';
-import bcrypt from 'bcrypt';
 
 @Injectable()
 export class UserService {
@@ -20,49 +18,7 @@ export class UserService {
           passwordHash: password,
         },
       });
-      const accessTokenPayload = {
-        sub: createdUser.id,
-        email: createdUser.email,
-      };
-      const accessToken = await this.jwt.signAsync(accessTokenPayload, {
-        secret: process.env.ACCESS_TOKEN_SECRET,
-        expiresIn: '15m',
-      });
-      const refreshTokenId = crypto.randomUUID();
-      const refreshToken = await this.jwt.signAsync(
-        { sub: createdUser.id, tokenId: refreshTokenId },
-        {
-          secret: process.env.REFRESH_TOKEN_SECRET,
-          expiresIn: '7d',
-        },
-      );
-
-      const refreshDurationMs = ms('7d');
-      const expiresAt = new Date(Date.now() + refreshDurationMs);
-
-      const tokenHash = await bcrypt.hash(refreshToken, 10);
-
-      await this.prisma.refreshToken.create({
-        data: {
-          id: refreshTokenId,
-          userId: createdUser.id,
-          expiresAt,
-          tokenHash,
-        },
-      });
-      const { passwordHash, ...user } = createdUser;
-      throw new HttpException(
-        {
-          status: 'success',
-          data: {
-            user,
-            accessToken: accessToken,
-            refreshToken: refreshToken,
-          },
-          message: 'User Created successfull',
-        },
-        HttpStatus.CREATED,
-      );
+      return createdUser;
     } catch (error) {
       console.log(error);
       throw new HttpException(
@@ -70,6 +26,34 @@ export class UserService {
           status: 'error',
           message:
             'Something went wrong in Auth Service - User Creation Failed',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async getUserDetails(at: string) {
+    try {
+      // Validate Access Token, if not expired then check of the user, if user exists then return the same.
+      const { sub } = await this.jwt.verifyAsync(at, {
+        secret: process.env.ACCESS_TOKEN_SECRET,
+      });
+      const user = await this.prisma.user.findFirst({
+        where: {
+          id: sub,
+        },
+      });
+      return {
+        status: 'success',
+        data: {
+          user,
+        },
+      };
+    } catch (error) {
+      console.log(error);
+      throw new HttpException(
+        {
+          message: 'Something went wrong!',
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );

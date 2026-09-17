@@ -6,6 +6,8 @@ import bcrypt from 'bcrypt';
 import { LoginDTO } from './dto/login.dto';
 import { JwtService } from '@nestjs/jwt';
 import ms from 'ms';
+import { RefreshDTO } from './dto/refresh.dto';
+import { User } from '@prisma/client';
 
 @Injectable()
 export class AuthService {
@@ -15,37 +17,56 @@ export class AuthService {
     private readonly jwt: JwtService,
   ) {}
   async registerUser(registerUserDTO: userRegisterDTO) {
-    // Request validation
-    const { name, email, password } = registerUserDTO;
-    if (
-      typeof name !== 'string' ||
-      typeof email !== 'string' ||
-      typeof password !== 'string'
-    )
-      return { status: 'error', message: 'Invalid data' };
-    const finalEmail = email.trim().toLowerCase();
-    // Email uniqueness
-    const existingUserCheck = await this.prisma.user.findUnique({
-      where: {
+    try {
+      // Request validation
+      const { name, email, password } = registerUserDTO;
+      if (
+        typeof name !== 'string' ||
+        typeof email !== 'string' ||
+        typeof password !== 'string'
+      )
+        return { status: 'error', message: 'Invalid data' };
+      const finalEmail = email.trim().toLowerCase();
+      // Email uniqueness
+      const existingUserCheck = await this.prisma.user.findUnique({
+        where: {
+          email: finalEmail,
+        },
+      });
+      if (existingUserCheck)
+        throw new HttpException(
+          {
+            status: 'error',
+            message: 'User with this email already exists',
+          },
+          HttpStatus.CONFLICT,
+        );
+      // Password hashing
+      const hashedPassword: string = await bcrypt.hash(password, 10);
+      const user = await this.userService.createUser({
+        name,
         email: finalEmail,
-      },
-    });
-    if (existingUserCheck)
+        password: hashedPassword,
+      });
+      const tokens = await this.generateTokens(user);
+      return {
+        status: 'Success',
+        data: {
+          user,
+          tokens,
+          message: 'User Created Successfully',
+        },
+      };
+    } catch (error) {
+      console.log(error);
       throw new HttpException(
         {
           status: 'error',
-          message: 'User with this email already exists',
+          message: 'Something went wrong!',
         },
-        HttpStatus.CONFLICT,
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
-    // Password hashing
-    const hashedPassword: string = await bcrypt.hash(password, 10);
-
-    return this.userService.createUser({
-      name,
-      email: finalEmail,
-      password: hashedPassword,
-    });
+    }
   }
 
   async login(loginDto: LoginDTO) {
@@ -73,49 +94,16 @@ export class AuthService {
           { status: 'error', message: 'Invalid email or password' },
           HttpStatus.UNAUTHORIZED,
         );
-      const accessToken = await this.jwt.signAsync(
-        {
-          sub: findEmail.id,
-          email: findEmail.email,
+      const { accessToken, refreshToken } =
+        await this.generateTokens(findEmail);
+      return {
+        status: 'success',
+        message: 'Login Successfull',
+        token: {
+          accessToken,
+          refreshToken,
         },
-        {
-          secret: process.env.ACCESS_TOKEN_SECRET,
-          expiresIn: '15m',
-        },
-      );
-      const tokenId = crypto.randomUUID();
-      const refreshToken = await this.jwt.signAsync(
-        {
-          sub: findEmail.id,
-          tokenId,
-        },
-        {
-          secret: process.env.REFRESH_TOKEN_SECRET,
-          expiresIn: '7d',
-        },
-      );
-      const refreshDurationMs = ms('7d');
-      const expiresAt = new Date(Date.now() + refreshDurationMs);
-      const tokenHash = await bcrypt.hash(refreshToken, 10);
-      await this.prisma.refreshToken.create({
-        data: {
-          id: tokenId,
-          expiresAt,
-          tokenHash,
-          userId: findEmail.id,
-        },
-      });
-      throw new HttpException(
-        {
-          status: 'success',
-          message: 'Login Successfull',
-          token: {
-            accessToken,
-            refreshToken,
-          },
-        },
-        HttpStatus.OK,
-      );
+      };
     } catch (error) {
       console.log(error);
       throw new HttpException(
@@ -126,5 +114,104 @@ export class AuthService {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
+  }
+
+  async generateTokens(user: User) {
+    const accessToken = await this.jwt.signAsync(
+      {
+        sub: user.id,
+        email: user.email,
+      },
+      {
+        secret: process.env.ACCESS_TOKEN_SECRET,
+        expiresIn: '15m',
+      },
+    );
+    const tokenId = crypto.randomUUID();
+    const refreshToken = await this.jwt.signAsync(
+      {
+        sub: user.id,
+        tokenId,
+      },
+      {
+        secret: process.env.REFRESH_TOKEN_SECRET,
+        expiresIn: '7d',
+      },
+    );
+    const refreshDurationMs = ms('7d');
+    const expiresAt = new Date(Date.now() + refreshDurationMs);
+    const tokenHash = await bcrypt.hash(refreshToken, 10);
+    await this.prisma.refreshToken.create({
+      data: {
+        id: tokenId,
+        expiresAt,
+        tokenHash,
+        userId: user.id,
+      },
+    });
+    return { accessToken, refreshToken };
+  }
+
+  async revokeRefreshToken(id: string) {
+    await this.prisma.refreshToken.update({
+      where: {
+        id,
+      },
+      data: {
+        revokedAt: new Date(),
+      },
+    });
+  }
+
+  async refresh(refreshDTO: RefreshDTO) {
+    try {
+      // 1. Parse the refresh token
+      const data = this.jwt.decode(refreshDTO.refreshToken);
+
+      // 2. Revoke the old refresh token by tokenId from JWT
+      await this.revokeRefreshToken(data.tokenId);
+      // 3. Generate & return new refresh and access token
+      // 3a. Fetch User data buy 'sub' from JWT
+      const user = await this.prisma.user.findFirst({
+        where: {
+          id: {
+            equals: data.sub,
+          },
+        },
+      });
+      // 3b. Generate Tokens
+      if (!user)
+        throw new HttpException(
+          { status: 'error', message: 'This user does exists' },
+          HttpStatus.BAD_REQUEST,
+        );
+      const { accessToken, refreshToken } = await this.generateTokens(user);
+      return {
+        status: 'Success',
+        message: 'Tokens generated successfully',
+        token: {
+          accessToken,
+          refreshToken,
+        },
+      };
+    } catch (error) {
+      throw new HttpException(
+        {
+          status: 'error',
+          message: 'Something went wrong!',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async logout({ refreshToken }: RefreshDTO) {
+    // 1. Parse the refresh token
+    const data = this.jwt.decode(refreshToken);
+    await this.revokeRefreshToken(data.tokenId);
+    return {
+      status: 'Success',
+      message: 'Logout successfully',
+    };
   }
 }
