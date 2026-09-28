@@ -1,8 +1,7 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Headers, Controller, Post, Get } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { userRegisterDTO } from './dto/userRegister.dto';
 import { LoginDTO } from './dto/login.dto';
-import { RefreshDTO } from './dto/refresh.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -19,12 +18,22 @@ export class AuthController {
   }
 
   @Post('refresh')
-  refresh(@Body() refreshDto: RefreshDTO) {
-    return this.authService.refresh(refreshDto);
+  refresh(@Headers('authorization') authorization: string) {
+    const token = this.authService.extractToken(authorization);
+    return this.authService.refresh(token);
   }
 
-  @Post('logout')
-  logout(@Body() logoutDto: RefreshDTO) {
-    return this.authService.logout(logoutDto);
+  // Takes the refresh token from the header and revokes it
+  @Get('logout')
+  logout(@Headers('authorization') authorization: string) {
+    const token = this.authService.extractToken(authorization);
+    return this.authService.logout(token);
+  }
+
+  // Future feature: Logout from all devices
+  @Get('logout')
+  logoutAllDevices(@Headers('authorization') authorization: string) {
+    const token = this.authService.extractToken(authorization);
+    return this.authService.logoutAllDevices(token);
   }
 }
