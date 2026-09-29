@@ -1,6 +1,6 @@
 import { userRegisterDTO } from '#src/auth/dto/userRegister.dto';
 import { PrismaService } from '#src/prisma/prisma.service';
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 
 @Injectable()

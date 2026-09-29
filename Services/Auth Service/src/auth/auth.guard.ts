@@ -1,8 +1,7 @@
 import {
+  BadRequestException,
   CanActivate,
   ExecutionContext,
-  HttpException,
-  HttpStatus,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -17,24 +16,10 @@ export class AuthGuard implements CanActivate {
     // Replace this
     const rawToken = request.headers.authorization;
     // From this
-    if (!rawToken)
-      throw new HttpException(
-        {
-          status: 'error',
-          message: 'token not provided',
-        },
-        HttpStatus.BAD_REQUEST,
-      );
+    if (!rawToken) throw new BadRequestException('token not provided');
     const [type, token] = rawToken?.split(' ') ?? [];
     const finalToken = type === 'Bearer' ? token : undefined;
-    if (!finalToken)
-      throw new HttpException(
-        {
-          status: 'error',
-          message: 'token not provided',
-        },
-        HttpStatus.BAD_REQUEST,
-      );
+    if (!finalToken) throw new BadRequestException('token not provided');
     // here
     try {
       // 💡 Here the JWT secret key that's used for verifying the payload
@@ -46,8 +31,7 @@ export class AuthGuard implements CanActivate {
       // so that we can access it in our route handlers
       request['user'] = payload;
     } catch (error) {
-      console.log(error);
-      throw new UnauthorizedException();
+      throw new UnauthorizedException('Invalid request');
     }
     return true;
   }

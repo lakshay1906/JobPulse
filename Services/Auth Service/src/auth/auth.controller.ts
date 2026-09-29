@@ -31,7 +31,7 @@ export class AuthController {
   }
 
   // Future feature: Logout from all devices
-  @Get('logout')
+  @Get('logout-all-devices')
   logoutAllDevices(@Headers('authorization') authorization: string) {
     const token = this.authService.extractToken(authorization);
     return this.authService.logoutAllDevices(token);

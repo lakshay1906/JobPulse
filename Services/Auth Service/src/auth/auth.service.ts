@@ -1,7 +1,7 @@
 import { UserService } from '#src/user/user.service';
 import {
-  HttpException,
-  HttpStatus,
+  BadRequestException,
+  ConflictException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -37,13 +37,7 @@ export class AuthService {
       },
     });
     if (existingUserCheck)
-      throw new HttpException(
-        {
-          status: 'error',
-          message: 'User with this email already exists',
-        },
-        HttpStatus.CONFLICT,
-      );
+      throw new ConflictException('User with this email already exists');
     // Password hashing
     const hashedPassword: string = await bcrypt.hash(password, 10);
     const { passwordHash, ...user } = await this.userService.createUser({
@@ -73,19 +67,13 @@ export class AuthService {
       },
     });
     if (!findEmail)
-      throw new HttpException(
-        { status: 'error', message: 'Invalid email or password' },
-        HttpStatus.UNAUTHORIZED,
-      );
+      throw new UnauthorizedException('Invalid email or password');
     const isPasswordValid = await bcrypt.compare(
       password,
       findEmail.passwordHash,
     );
     if (!isPasswordValid)
-      throw new HttpException(
-        { status: 'error', message: 'Invalid email or password' },
-        HttpStatus.UNAUTHORIZED,
-      );
+      throw new UnauthorizedException('Invalid email or password');
     const { accessToken, refreshToken } = await this.generateTokens(findEmail);
     return {
       status: 'success',
@@ -134,8 +122,7 @@ export class AuthService {
   }
 
   async revokeRefreshToken(id: string, userId: string) {
-    // 1. Check if the token is already revoked
-    // const userId = '';
+    // 1. Check if the token is already revoked or expired and UserId is valid
     const { count } = await this.prisma.refreshToken.updateMany({
       where: {
         id,
@@ -150,9 +137,14 @@ export class AuthService {
 
   async refresh(rt: string) {
     // 1. Parse the refresh token
-    const data = await this.jwt.verifyAsync(rt, {
-      secret: process.env.REFRESH_TOKEN_SECRET,
-    });
+    let data: any;
+    try {
+      data = await this.jwt.verifyAsync(rt, {
+        secret: process.env.REFRESH_TOKEN_SECRET,
+      });
+    } catch (error) {
+      throw new UnauthorizedException('Invalid request');
+    }
 
     // 2. Revoke the old refresh token by tokenId from JWT
     await this.revokeRefreshToken(data.tokenId, data.sub);
@@ -166,11 +158,7 @@ export class AuthService {
       },
     });
     // 3b. Generate Tokens
-    if (!user)
-      throw new HttpException(
-        { status: 'error', message: 'This user does exists' },
-        HttpStatus.BAD_REQUEST,
-      );
+    if (!user) throw new BadRequestException('This user does exists');
     const { accessToken, refreshToken } = await this.generateTokens(user);
     return {
       status: 'Success',
@@ -184,9 +172,14 @@ export class AuthService {
 
   async logout(rt: string) {
     // 1. Parse the refresh token
-    const data = await this.jwt.verifyAsync(rt, {
-      secret: process.env.REFRESH_TOKEN_SECRET,
-    });
+    let data: any;
+    try {
+      data = await this.jwt.verifyAsync(rt, {
+        secret: process.env.REFRESH_TOKEN_SECRET,
+      });
+    } catch (error) {
+      throw new UnauthorizedException('Invalid request');
+    }
 
     await this.revokeRefreshToken(data.tokenId, data.sub);
     return {
@@ -215,24 +208,10 @@ export class AuthService {
   }
 
   extractToken(authorization: string) {
-    if (!authorization)
-      throw new HttpException(
-        {
-          status: 'error',
-          message: 'token not provided',
-        },
-        HttpStatus.BAD_REQUEST,
-      );
+    if (!authorization) throw new UnauthorizedException('token not provided');
     const [type, token] = authorization?.split(' ') ?? [];
     const finalToken = type === 'Bearer' ? token : undefined;
-    if (!finalToken)
-      throw new HttpException(
-        {
-          status: 'error',
-          message: 'token not provided',
-        },
-        HttpStatus.BAD_REQUEST,
-      );
+    if (!finalToken) throw new BadRequestException('token not provided');
     return finalToken;
   }
 }
