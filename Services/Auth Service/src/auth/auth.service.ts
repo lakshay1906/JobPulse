@@ -86,16 +86,10 @@ export class AuthService {
   }
 
   async generateTokens(user: User) {
-    const accessToken = await this.jwt.signAsync(
-      {
-        sub: user.id,
-        email: user.email,
-      },
-      {
-        secret: process.env.ACCESS_TOKEN_SECRET,
-        expiresIn: '15m',
-      },
-    );
+    const accessToken = await this.jwt.signAsync({
+      sub: user.id,
+      email: user.email,
+    });
     const tokenId = crypto.randomUUID();
     const refreshToken = await this.jwt.signAsync(
       {
@@ -104,6 +98,7 @@ export class AuthService {
       },
       {
         secret: process.env.REFRESH_TOKEN_SECRET,
+        algorithm: 'HS256',
         expiresIn: '7d',
       },
     );
@@ -141,6 +136,7 @@ export class AuthService {
     try {
       data = await this.jwt.verifyAsync(rt, {
         secret: process.env.REFRESH_TOKEN_SECRET,
+        algorithms: ['HS256'],
       });
     } catch (error) {
       throw new UnauthorizedException('Invalid request');
@@ -176,6 +172,7 @@ export class AuthService {
     try {
       data = await this.jwt.verifyAsync(rt, {
         secret: process.env.REFRESH_TOKEN_SECRET,
+        algorithms: ['HS256'],
       });
     } catch (error) {
       throw new UnauthorizedException('Invalid request');
@@ -191,6 +188,7 @@ export class AuthService {
   async logoutAllDevices(rt: string) {
     const tokenData = await this.jwt.verifyAsync(rt, {
       secret: process.env.REFRESH_TOKEN_SECRET,
+      algorithms: ['HS256'],
     });
     await this.prisma.refreshToken.updateMany({
       where: {
