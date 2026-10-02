@@ -8,10 +8,11 @@ import {
   Delete,
   UseGuards,
   Req,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApplicationsService } from './applications.service';
 import { CreateApplicationDto } from './dto/create-application.dto';
-import { UpdateApplicationDto } from './dto/update-application.dto';
+import { UpdateApplicationStatusDto } from './dto/update-application-status.dto';
 import { AuthGuard } from '#src/auth.guard';
 import { User } from '#src/types/user';
 
@@ -40,21 +41,39 @@ export class ApplicationsController {
     return this.applicationsService.findAll(request.user.sub);
   }
 
+  @UseGuards(AuthGuard)
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.applicationsService.findOne(+id);
-  }
-
-  @Patch(':id')
-  update(
-    @Param('id') id: string,
-    @Body() updateApplicationDto: UpdateApplicationDto,
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() request: { user: User },
   ) {
-    return this.applicationsService.update(+id, updateApplicationDto);
+    return this.applicationsService.findOne(id, request.user.sub);
   }
 
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.applicationsService.remove(+id);
+  @UseGuards(AuthGuard)
+  @Patch(':id/status')
+  updateApplicationStatus(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() { status }: UpdateApplicationStatusDto,
+    @Req() request: { user: User },
+  ) {
+    return this.applicationsService.updateApplicationStatus(
+      id,
+      request.user.sub,
+      status,
+    );
   }
+
+  // @Patch(':id')
+  // update(
+  //   @Param('id') id: string,
+  //   @Body() updateApplicationDto: UpdateApplicationDto,
+  // ) {
+  //   return this.applicationsService.update(+id, updateApplicationDto);
+  // }
+
+  // @Delete(':id')
+  // remove(@Param('id') id: string) {
+  //   return this.applicationsService.remove(+id);
+  // }
 }
