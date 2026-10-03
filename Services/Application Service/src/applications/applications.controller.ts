@@ -15,6 +15,7 @@ import { CreateApplicationDto } from './dto/create-application.dto';
 import { UpdateApplicationStatusDto } from './dto/update-application-status.dto';
 import { AuthGuard } from '#src/auth.guard';
 import { User } from '#src/types/user';
+import { CreateInterviewDTO } from './dto/create-interview.dto';
 
 @Controller('applications')
 export class ApplicationsController {
@@ -61,6 +62,18 @@ export class ApplicationsController {
       id,
       request.user.sub,
       status,
+    );
+  }
+
+  @UseGuards(AuthGuard)
+  @Post('create-interview')
+  createInterview(
+    @Body() createInterviewDto: CreateInterviewDTO,
+    @Req() request: { user: User },
+  ) {
+    return this.applicationsService.createInterview(
+      createInterviewDto,
+      request.user.sub,
     );
   }
 

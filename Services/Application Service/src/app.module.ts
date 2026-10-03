@@ -8,6 +8,8 @@ import { JwtModule } from '@nestjs/jwt';
 import { CompaniesModule } from './companies/companies.module';
 import { JobsModule } from './jobs/jobs.module';
 import { ApplicationsModule } from './applications/applications.module';
+import { ClientsModule, Transport } from '@nestjs/microservices';
+import { join } from 'path';
 
 @Module({
   imports: [
@@ -30,6 +32,17 @@ import { ApplicationsModule } from './applications/applications.module';
     CompaniesModule,
     JobsModule,
     ApplicationsModule,
+    ClientsModule.register([
+      {
+        name: 'INTERVIEW_PACKAGE',
+        transport: Transport.GRPC,
+        options: {
+          package: 'interview',
+          protoPath: join(process.cwd(), '../../proto/interview.proto'),
+          url: 'localhost:50051',
+        },
+      },
+    ]),
   ],
   controllers: [AppController, HealthController],
   providers: [AppService],

@@ -6,3 +6,64 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+model Interview {
+  id            String          @id @default(uuid())
+  userId        String
+  applicationId String
+  status        InterviewStatus @default(SCHEDULED)
+  scheduledAt   DateTime?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  rounds InterviewRound[]
+
+  @@index([applicationId])
+  @@index([userId])
+  @@index([applicationId, status])
+}
+
+enum InterviewStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model InterviewRound {
+  id          String            @id @default(uuid())
+  interviewId String
+  roundNumber Int
+  type        String
+  status      RoundStatus       @default(PENDING)
+  scheduledAt DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  interview Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  feedback  Feedback[]
+
+  @@index([interviewId])
+  @@unique([interviewId, roundNumber])
+}
+
+enum RoundStatus {
+  PENDING
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+model Feedback {
+  id          String   @id @default(uuid())
+  roundId     String
+  interviewer String?
+  rating      Int?
+  comments    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  round InterviewRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
+
+  @@index([roundId])
+}

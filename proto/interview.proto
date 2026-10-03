@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package interview;
+
+service InterviewService {
+  rpc CreateInterview (CreateInterviewRequest) returns (CreateInterviewResponse);
+}
+
+message CreateInterviewRequest {
+  string applicationId = 1;
+  string userId = 2;
+  string scheduledAt = 3;
+}
+
+message CreateInterviewResponse {
+  string id = 1;
+  string applicationId = 2;
+  string status = 3;
+  string scheduledAt = 4;
+  string createdAt = 5;
+}

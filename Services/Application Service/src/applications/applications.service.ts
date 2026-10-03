@@ -1,11 +1,33 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  OnModuleInit,
+} from '@nestjs/common';
 import { CreateApplicationDto } from './dto/create-application.dto';
 import { UpdateApplicationStatusDto } from './dto/update-application-status.dto';
 import { PrismaService } from '#src/prisma/prisma.service';
+import { CreateInterviewDTO } from './dto/create-interview.dto';
+import { lastValueFrom } from 'rxjs';
+import * as microservices from '@nestjs/microservices';
+import {
+  INTERVIEW_SERVICE_NAME,
+  InterviewServiceClient,
+} from '#src/generated/interview';
 
 @Injectable()
-export class ApplicationsService {
-  constructor(private readonly prisma: PrismaService) {}
+export class ApplicationsService implements OnModuleInit {
+  private interviewService!: InterviewServiceClient;
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject('INTERVIEW_PACKAGE') private client: microservices.ClientGrpc,
+  ) {}
+
+  onModuleInit() {
+    this.interviewService = this.client.getService<InterviewServiceClient>(
+      INTERVIEW_SERVICE_NAME,
+    );
+  }
 
   async create(createApplicationDto: CreateApplicationDto, userId: string) {
     const isJobValid = await this.prisma.job.findFirst({
@@ -132,6 +154,26 @@ export class ApplicationsService {
         },
       });
     });
+  }
+
+  async createInterview(data: CreateInterviewDTO, userId: string) {
+    const isApplicationValid = await this.prisma.application.findFirst({
+      where: {
+        id: data.applicationId,
+        userId,
+      },
+    });
+    if (!isApplicationValid)
+      throw new BadRequestException('Application is invalid');
+
+    // Call interview service
+    const interviewResponse = await lastValueFrom(
+      this.interviewService.createInterview({
+        ...data,
+        userId,
+      }),
+    );
+    return interviewResponse;
   }
 
   update(id: number, updateApplicationDto: UpdateApplicationStatusDto) {
