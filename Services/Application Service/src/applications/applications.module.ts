@@ -14,6 +14,7 @@ import { join } from 'path';
           package: 'interview',
           protoPath: join(process.cwd(), '../../proto/interview.proto'),
           url: 'localhost:50051',
+          loader: { arrays: true, keepCase: true },
         },
       },
     ]),

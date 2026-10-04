@@ -16,6 +16,7 @@ async function bootstrap() {
         package: INTERVIEW_PACKAGE_NAME,
         protoPath: join(process.cwd(), '../../proto/interview.proto'),
         url: 'localhost:50051',
+        loader: { arrays: true, keepCase: true },
       },
     },
     { inheritAppConfig: true },

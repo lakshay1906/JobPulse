@@ -16,29 +16,62 @@ export interface CreateInterviewRequest {
   scheduledAt: string;
 }
 
-export interface CreateInterviewResponse {
+export interface GetInterviewByApplicationRequest {
+  applicationId: string;
+  userId: string;
+}
+
+export interface Feedback {
+  id: string;
+  interviewer?: string | undefined;
+  rating?: number | undefined;
+  comments?: string | undefined;
+}
+
+export interface InterviewRound {
+  id: string;
+  roundNumber: number;
+  type: string;
+  status: string;
+  scheduledAt?: string | undefined;
+  feedback: Feedback[];
+}
+
+export interface Interview {
   id: string;
   applicationId: string;
   status: string;
-  scheduledAt: string;
+  scheduledAt?: string | undefined;
   createdAt: string;
+  rounds: InterviewRound[];
+}
+
+export interface GetInterviewByApplicationResponse {
+  interviews: Interview[];
 }
 
 export const INTERVIEW_PACKAGE_NAME = "interview";
 
 export interface InterviewServiceClient {
-  createInterview(request: CreateInterviewRequest): Observable<CreateInterviewResponse>;
+  createInterview(request: CreateInterviewRequest): Observable<Interview>;
+
+  getInterviewByApplication(request: GetInterviewByApplicationRequest): Observable<GetInterviewByApplicationResponse>;
 }
 
 export interface InterviewServiceController {
-  createInterview(
-    request: CreateInterviewRequest,
-  ): Promise<CreateInterviewResponse> | Observable<CreateInterviewResponse> | CreateInterviewResponse;
+  createInterview(request: CreateInterviewRequest): Promise<Interview> | Observable<Interview> | Interview;
+
+  getInterviewByApplication(
+    request: GetInterviewByApplicationRequest,
+  ):
+    | Promise<GetInterviewByApplicationResponse>
+    | Observable<GetInterviewByApplicationResponse>
+    | GetInterviewByApplicationResponse;
 }
 
 export function InterviewServiceControllerMethods() {
   return function (constructor: Function) {
-    const grpcMethods: string[] = ["createInterview"];
+    const grpcMethods: string[] = ["createInterview", "getInterviewByApplication"];
     for (const method of grpcMethods) {
       const descriptor: any = Reflect.getOwnPropertyDescriptor(constructor.prototype, method);
       GrpcMethod("InterviewService", method)(constructor.prototype[method], method, descriptor);
