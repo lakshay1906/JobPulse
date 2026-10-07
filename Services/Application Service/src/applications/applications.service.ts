@@ -157,13 +157,7 @@ export class ApplicationsService implements OnModuleInit {
   }
 
   async createInterview(data: CreateInterviewDTO, userId: string) {
-    const isApplicationValid = await this.prisma.application.findFirst({
-      where: {
-        id: data.applicationId,
-        userId,
-      },
-    });
-    if (!isApplicationValid)
+    if (!(await this.isApplicationValid(data.applicationId, userId)))
       throw new BadRequestException('Application is invalid');
 
     // Call interview service
@@ -174,6 +168,28 @@ export class ApplicationsService implements OnModuleInit {
       }),
     );
     return interviewResponse;
+  }
+
+  async getInterviewsByApplication(id: string, userId: string) {
+    if (!(await this.isApplicationValid(id, userId)))
+      throw new BadRequestException('Application is invalid');
+
+    return lastValueFrom(
+      this.interviewService.getInterviewByApplication({
+        applicationId: id,
+        userId,
+      }),
+    );
+  }
+
+  async isApplicationValid(id: string, userId: string) {
+    const isValid = await this.prisma.application.findFirst({
+      where: {
+        id,
+        userId,
+      },
+    });
+    return isValid ? true : false;
   }
 
   update(id: number, updateApplicationDto: UpdateApplicationStatusDto) {

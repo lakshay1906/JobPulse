@@ -77,6 +77,18 @@ export class ApplicationsController {
     );
   }
 
+  @UseGuards(AuthGuard)
+  @Get('get-interviews-by-application/:id')
+  getInterviewsByApplication(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: { user: User },
+  ) {
+    return this.applicationsService.getInterviewsByApplication(
+      id,
+      req.user.sub,
+    );
+  }
+
   // @Patch(':id')
   // update(
   //   @Param('id') id: string,
