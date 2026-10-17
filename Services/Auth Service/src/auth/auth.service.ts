@@ -11,7 +11,7 @@ import bcrypt from 'bcrypt';
 import { LoginDTO } from './dto/login.dto';
 import { JwtService } from '@nestjs/jwt';
 import ms from 'ms';
-import { User } from '@prisma/client';
+import { User } from '../../generated/prisma';
 
 @Injectable()
 export class AuthService {
