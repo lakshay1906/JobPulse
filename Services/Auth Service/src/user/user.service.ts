@@ -1,13 +1,13 @@
 import { userRegisterDTO } from '#src/auth/dto/userRegister.dto';
 import { PrismaService } from '#src/prisma/prisma.service';
+import { RedisService } from '#src/redis/redis.service';
 import { Injectable } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class UserService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly jwt: JwtService,
+    private readonly redis: RedisService,
   ) {}
   async createUser({ name, email, password }: userRegisterDTO) {
     const createdUser = await this.prisma.user.create({
@@ -26,13 +26,34 @@ export class UserService {
     iat: number;
     exp: number;
   }) {
-    // Validate Access Token, if not expired then check of the user, if user exists then return the same.
+    const key = `auth:user:one:${tokenBody.sub}`;
+
+    const cached = await this.redis.getJson(key);
+    if (cached) return cached;
 
     const user = await this.prisma.user.findFirst({
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        createdAt: true,
+      },
       where: {
         id: tokenBody.sub,
       },
     });
+
+    await this.redis.setJson(
+      key,
+      {
+        status: 'success',
+        data: {
+          user,
+        },
+      },
+      3600,
+    );
+
     return {
       status: 'success',
       data: {
