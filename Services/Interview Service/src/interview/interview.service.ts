@@ -7,6 +7,7 @@ import {
   Interview,
 } from '#src/generated/interview';
 import { PrismaService } from '#src/prisma/prisma.service';
+import { RedisService } from '#src/redis/redis.service';
 
 const interviewInclude = {
   rounds: {
@@ -44,30 +45,42 @@ function toProto(i: InterviewWithRounds): Interview {
 
 @Injectable()
 export class InterviewService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
+  ) {}
 
   async createInterview(request: CreateInterviewRequest): Promise<Interview> {
     const created = await this.prisma.interview.create({
       data: { ...request, status: 'SCHEDULED' },
       include: interviewInclude,
     });
+    await this.redis.del(`interview:one:${request.userId}:${created.id}`);
     return toProto(created);
   }
 
   async getInterviewById(id: string, userId: string): Promise<Interview> {
+    const key = `interview:one:${userId}:${id}`;
+    const cachedData = await this.redis.getJson<Interview>(key);
+    if (cachedData) {
+      return cachedData;
+    }
     const interview = await this.prisma.interview.findFirst({
       where: { id, userId },
       include: interviewInclude,
     });
     if (!interview) throw new NotFoundException('Interview not found');
-    return toProto(interview);
+    const payload = toProto(interview);
+    await this.redis.setJson(key, payload, 3600);
+    return payload;
   }
 
-  async getInterviewByApplication(
-    request: GetInterviewByApplicationRequest,
-  ): Promise<GetInterviewByApplicationResponse> {
+  async getInterviewByApplication({
+    applicationId,
+    userId,
+  }: GetInterviewByApplicationRequest): Promise<GetInterviewByApplicationResponse> {
     const interviews = await this.prisma.interview.findMany({
-      where: { applicationId: request.applicationId, userId: request.userId },
+      where: { applicationId, userId },
       include: interviewInclude,
       orderBy: { createdAt: 'desc' },
     });

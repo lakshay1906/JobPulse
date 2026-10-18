@@ -6,6 +6,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { PrismaModule } from './prisma/prisma.module';
 import { InterviewModule } from './interview/interview.module';
 import { JwtModule } from '@nestjs/jwt';
+import { RedisModule } from './redis/redis.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { JwtModule } from '@nestjs/jwt';
     }),
     PrismaModule,
     InterviewModule,
+    RedisModule,
   ],
   controllers: [AppController, HealthController],
   providers: [AppService],
