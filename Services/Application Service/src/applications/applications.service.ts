@@ -185,19 +185,25 @@ export class ApplicationsService implements OnModuleInit {
         userId,
       }),
     );
+    await this.redis.del(`app:interview:${userId}:${data.applicationId}`);
     return interviewResponse;
   }
 
   async getInterviewsByApplication(id: string, userId: string) {
+    const key = `app:interview:${userId}:${id}`;
+    const cachedData = await this.redis.getJson(key);
+    if (cachedData) return cachedData;
     if (!(await this.isApplicationValid(id, userId)))
       throw new BadRequestException('Application is invalid');
 
-    return lastValueFrom(
+    const payload = await lastValueFrom(
       this.interviewService.getInterviewByApplication({
         applicationId: id,
         userId,
       }),
     );
+    await this.redis.setJson(key, payload, 3600);
+    return payload;
   }
 
   async isApplicationValid(id: string, userId: string) {
