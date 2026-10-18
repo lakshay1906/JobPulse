@@ -10,6 +10,7 @@ import { JobsModule } from './jobs/jobs.module';
 import { ApplicationsModule } from './applications/applications.module';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { join } from 'path';
+import { RedisModule } from './redis/redis.module';
 
 @Module({
   imports: [
@@ -32,17 +33,18 @@ import { join } from 'path';
     CompaniesModule,
     JobsModule,
     ApplicationsModule,
-    ClientsModule.register([
-      {
-        name: 'INTERVIEW_PACKAGE',
-        transport: Transport.GRPC,
-        options: {
-          package: 'interview',
-          protoPath: join(process.cwd(), '../../proto/interview.proto'),
-          url: 'localhost:50051',
-        },
-      },
-    ]),
+    // ClientsModule.register([
+    //   {
+    //     name: 'INTERVIEW_PACKAGE',
+    //     transport: Transport.GRPC,
+    //     options: {
+    //       package: 'interview',
+    //       protoPath: join(process.cwd(), '../../proto/interview.proto'),
+    //       url: 'localhost:50051',
+    //     },
+    //   },
+    // ]),
+    RedisModule,
   ],
   controllers: [AppController, HealthController],
   providers: [AppService],

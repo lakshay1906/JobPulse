@@ -14,6 +14,7 @@ import {
   INTERVIEW_SERVICE_NAME,
   InterviewServiceClient,
 } from '#src/generated/interview';
+import { RedisService } from '#src/redis/redis.service';
 
 @Injectable()
 export class ApplicationsService implements OnModuleInit {
@@ -21,6 +22,7 @@ export class ApplicationsService implements OnModuleInit {
   constructor(
     private readonly prisma: PrismaService,
     @Inject('INTERVIEW_PACKAGE') private client: microservices.ClientGrpc,
+    private readonly redis: RedisService,
   ) {}
 
   onModuleInit() {
@@ -42,10 +44,18 @@ export class ApplicationsService implements OnModuleInit {
         ...createApplicationDto,
       },
     });
+    await this.redis.del(`app:list:${userId}`);
     return createdApplication;
   }
 
   async findAll(userId: string) {
+    // Check if cache exists with the user ID
+    const key = `app:list:${userId}`;
+
+    const cached = await this.redis.getJson(key);
+
+    if (cached) return cached; // HIT
+
     const allApplications = await this.prisma.application.findMany({
       where: {
         userId,
@@ -76,10 +86,15 @@ export class ApplicationsService implements OnModuleInit {
         },
       },
     });
+    // Set cache with the user ID and the applications
+    await this.redis.setJson(key, allApplications, 3600); // TTL: 1hour
     return allApplications;
   }
 
   async findOne(id: string, userId: string) {
+    const key = `app:one:${userId}:${id}`;
+    const cached = await this.redis.getJson(key);
+    if (cached) return cached;
     const application = await this.prisma.application.findFirst({
       where: {
         id,
@@ -120,6 +135,7 @@ export class ApplicationsService implements OnModuleInit {
       },
     });
     if (!application) throw new BadRequestException('Id is invalid');
+    await this.redis.setJson(key, application, 3600);
     return application;
   }
 
@@ -134,7 +150,7 @@ export class ApplicationsService implements OnModuleInit {
       | 'REJECTED'
       | 'WITHDRAWN',
   ) {
-    return this.prisma.$transaction(async (tx) => {
+    const data = await this.prisma.$transaction(async (tx) => {
       const current = await tx.application.findFirst({
         where: { id, userId },
         select: { status: true },
@@ -143,7 +159,6 @@ export class ApplicationsService implements OnModuleInit {
       if (current.status === status) {
         throw new BadRequestException(`Application is already ${status}`);
       }
-
       return tx.application.update({
         where: { id },
         data: {
@@ -154,6 +169,9 @@ export class ApplicationsService implements OnModuleInit {
         },
       });
     });
+    await this.redis.del(`app:list:${userId}`);
+    await this.redis.del(`app:one:${userId}:${id}`);
+    return data;
   }
 
   async createInterview(data: CreateInterviewDTO, userId: string) {
