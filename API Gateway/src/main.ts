@@ -1,9 +1,17 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { createProxyMiddleware } from 'http-proxy-middleware';
+import { RedisService } from './redis/redis.service';
+import { createRateLimitMiddleware } from './rate-limit/rate-limit';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // 1) Get Redis from Nest DI
+  const redis = app.get(RedisService);
+
+  // 2) Rate limit FIRST
+  app.use(createRateLimitMiddleware(redis));
 
   // Proxy for Auth Service
   app.use(
