@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { RedisService } from '../redis/redis.service';
+import { JwtService } from '@nestjs/jwt';
 
 function clientIp(req: Request): string {
   // behind proxy you may use x-forwarded-for later
@@ -28,11 +29,36 @@ function ruleFor(
 }
 
 export function createRateLimitMiddleware(redis: RedisService) {
+  const jwtService = new JwtService({
+    publicKey: Buffer.from(
+      process.env.JWT_PUBLIC_KEY || '',
+      'base64',
+    ).toString(),
+    verifyOptions: { algorithms: ['RS256'], issuer: 'jobpulse-auth' },
+  });
   return async (req: Request, res: Response, next: NextFunction) => {
     const rule = ruleFor(req.method, req.path);
     if (!rule) return next();
 
-    const key = `${rule.keyPrefix}:${clientIp(req)}`;
+    let decoded: any = null;
+    if (
+      !req.path.startsWith('/auth/login') &&
+      !req.path.startsWith('/auth/register')
+    ) {
+      const token = req.headers['authorization']?.split(' ')[1];
+      if (!token) return next();
+      try {
+        decoded = jwtService.verify(token);
+      } catch (error) {
+        return res.status(401).json({
+          statusCode: 401,
+          message: 'Unauthorized',
+        });
+      }
+    }
+    const key = decoded
+      ? `${rule.keyPrefix}:${clientIp(req)}:${decoded.sub}`
+      : `${rule.keyPrefix}:${clientIp(req)}:unauthenticated`;
     const count = await redis.incrWithExpire(key, rule.window);
 
     // Redis down → fail open

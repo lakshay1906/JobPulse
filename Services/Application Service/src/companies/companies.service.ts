@@ -2,15 +2,20 @@ import { Injectable } from '@nestjs/common';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
 import { PrismaService } from '#src/prisma/prisma.service';
+import { RedisService } from '#src/redis/redis.service';
 
 @Injectable()
 export class CompaniesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
+  ) {}
 
   async create(createCompanyDto: CreateCompanyDto, userId: string) {
     const createdData = await this.prisma.company.create({
       data: { userId, ...createCompanyDto },
     });
+    await this.redis.del(`app:dashboard:stats:user:${userId}`);
     return createdData;
   }
 

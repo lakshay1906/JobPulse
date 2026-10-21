@@ -45,6 +45,7 @@ export class ApplicationsService implements OnModuleInit {
       },
     });
     await this.redis.del(`app:list:${userId}`);
+    await this.redis.del(`app:dashboard:stats:user:${userId}`);
     return createdApplication;
   }
 
@@ -171,6 +172,7 @@ export class ApplicationsService implements OnModuleInit {
     });
     await this.redis.del(`app:list:${userId}`);
     await this.redis.del(`app:one:${userId}:${id}`);
+    await this.redis.del(`app:dashboard:stats:user:${userId}`);
     return data;
   }
 
@@ -186,6 +188,7 @@ export class ApplicationsService implements OnModuleInit {
       }),
     );
     await this.redis.del(`app:interview:${userId}:${data.applicationId}`);
+    await this.redis.del(`app:dashboard:stats:user:${userId}`);
     return interviewResponse;
   }
 

@@ -11,7 +11,9 @@ async function bootstrap() {
   const redis = app.get(RedisService);
 
   // 2) Rate limit FIRST
-  app.use(createRateLimitMiddleware(redis));
+  if (redis) {
+    app.use(createRateLimitMiddleware(redis));
+  }
 
   // Proxy for Auth Service
   app.use(

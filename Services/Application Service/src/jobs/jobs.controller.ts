@@ -7,11 +7,13 @@ import {
   Param,
   Delete,
   UseGuards,
+  Req,
 } from '@nestjs/common';
 import { JobsService } from './jobs.service';
 import { CreateJobDto } from './dto/create-job.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
 import { AuthGuard } from '#src/auth.guard';
+import { User } from '#src/types/user';
 
 @Controller('jobs')
 export class JobsController {
@@ -19,8 +21,8 @@ export class JobsController {
 
   @UseGuards(AuthGuard)
   @Post()
-  create(@Body() createJobDto: CreateJobDto) {
-    return this.jobsService.create(createJobDto);
+  create(@Body() createJobDto: CreateJobDto, @Req() req: { user: User }) {
+    return this.jobsService.create(createJobDto, req.user.sub);
   }
 
   // @Get()
